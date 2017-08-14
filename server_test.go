@@ -120,6 +120,23 @@ func TestRequestCtxIsTLS(t *testing.T) {
 	}
 }
 
+func TestRequestCtxConn(t *testing.T) {
+	var ctx RequestCtx
+	ctx.c = &struct {
+		*tls.Conn
+		value bool
+	}{value: true}
+
+	tc, ok := ctx.Conn().(*struct {
+		*tls.Conn
+		value bool
+	})
+
+	if !ok || !tc.value {
+		t.Fatalf("Conn must return underlying connection")
+	}
+}
+
 func TestRequestCtxRedirectHTTPSSchemeless(t *testing.T) {
 	var ctx RequestCtx
 
