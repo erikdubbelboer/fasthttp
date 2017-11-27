@@ -66,6 +66,6 @@ var (
 	}
 )
 
-func GetContentType(file string) string {
+func ContentType(file string) string {
 	return contentType[path.Ext(file)]
 }
