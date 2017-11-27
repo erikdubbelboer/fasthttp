@@ -405,13 +405,8 @@ func peekArgBytes(h []argsKV, k []byte) []byte {
 }
 
 func peekArgStr(h []argsKV, k string) []byte {
-	for i, n := 0, len(h); i < n; i++ {
-		kv := &h[i]
-		if string(kv.key) == k {
-			return kv.value
-		}
-	}
-	return nil
+	// better to use string() casting
+	return peekArgBytes(h, []byte(k))
 }
 
 type argsScanner struct {
