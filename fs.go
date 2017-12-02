@@ -105,11 +105,6 @@ var (
 	rootFSHandler RequestHandler
 )
 
-// PathNotFound fires when file is not found in filesystem
-// this functions tries to replace "Cannot open requested path"
-// server response giving to the programmer the control of server flow.
-type PathNotFoundFunc func(ctx *RequestCtx)
-
 // PathRewriteFunc must return new request path based on arbitrary ctx
 // info such as ctx.Path().
 //
@@ -246,11 +241,13 @@ type FS struct {
 	// By default request path is not modified.
 	PathRewrite PathRewriteFunc
 
-	// Path not found function.
+	// PathNotFound fires when file is not found in filesystem
+	// this functions tries to replace "Cannot open requested path"
+	// server response giving to the programmer the control of server flow.
 	//
 	// By default PathNotFound returns
 	// "Cannot open requested path"
-	PathNotFound PathNotFoundFunc
+	PathNotFound RequestHandler
 
 	// Expiration duration for inactive file handlers.
 	//
@@ -377,7 +374,7 @@ type fsHandler struct {
 	root                 string
 	indexNames           []string
 	pathRewrite          PathRewriteFunc
-	pathNotFound         PathNotFoundFunc
+	pathNotFound         RequestHandler
 	generateIndexPages   bool
 	compress             bool
 	acceptByteRange      bool

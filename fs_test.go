@@ -53,7 +53,7 @@ func TestNewVHostPathRewriterMaliciousHost(t *testing.T) {
 	}
 }
 
-func testPathNotFound(t *testing.T, pathNotFoundFunc PathNotFoundFunc) {
+func testPathNotFound(t *testing.T, pathNotFoundFunc RequestHandler) {
 	var ctx RequestCtx
 	var req Request
 	req.SetRequestURI("http//some.url/file")
