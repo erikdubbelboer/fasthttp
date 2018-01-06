@@ -1121,9 +1121,6 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	}
 	bw := c.acquireWriter(conn)
 	err = req.Write(bw)
-	if len(userAgentOld) == 0 {
-		req.Header.userAgent = userAgentOld
-	}
 
 	if resetConnection {
 		req.Header.ResetConnectionClose()
@@ -1525,9 +1522,8 @@ func dialAddr(addr string, dial DialFunc, dialDualStack, isTLS bool, tlsConfig *
 	return conn, nil
 }
 
-func (c *HostClient) getClientName() []byte {
+func (c *HostClient) getClientName() (clientName []byte) {
 	v := c.clientName.Load()
-	var clientName []byte
 	if v == nil {
 		clientName = []byte(c.Name)
 		if len(clientName) == 0 {
@@ -1537,7 +1533,7 @@ func (c *HostClient) getClientName() []byte {
 	} else {
 		clientName = v.([]byte)
 	}
-	return clientName
+	return
 }
 
 func addMissingPort(addr string, isTLS bool) string {

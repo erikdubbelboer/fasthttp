@@ -18,6 +18,28 @@ import (
 	"github.com/erikdubbelboer/fasthttp/fasthttputil"
 )
 
+func TestClientUserAgent(t *testing.T) {
+	go ListenAndServe(":49810", func(ctx *RequestCtx) {
+		ctx.Write([]byte("response"))
+	})
+	userAgent := "I'm not fasthttp"
+	c := &Client{
+		Name: userAgent,
+	}
+	req := AcquireRequest()
+	res := AcquireResponse()
+
+	req.SetRequestURI("http://localhost:49810")
+
+	err := c.Do(req, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ua := string(req.Header.UserAgent()); ua != userAgent {
+		t.Fatalf("User-Agent defers %s <> %s", ua, userAgent)
+	}
+}
+
 func TestClientDoWithCustomHeaders(t *testing.T) {
 	// make sure that the client sends all the request headers and body.
 	ln := fasthttputil.NewInmemoryListener()
