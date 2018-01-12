@@ -995,6 +995,34 @@ func (resp *Response) ReadLimitBody(r *bufio.Reader, maxBodySize int) error {
 	return nil
 }
 
+func (resp *Response) copyBody(wr io.Writer, rd io.Reader, maxBodySize int) error {
+	resp.resetSkipHeader()
+	r := bufio.NewReader(rd)
+	err := resp.Header.Read(r)
+	if err != nil {
+		return err
+	}
+	if resp.Header.StatusCode() == StatusContinue {
+		// Read the next response according to http://www.w3.org/Protocols/rfc2616/rfc2616-sec8.html .
+		if err = resp.Header.Read(r); err != nil {
+			return err
+		}
+	}
+	if !resp.mustSkipBody() {
+		var n int
+		if n = resp.Header.ContentLength(); maxBodySize > 0 && n > maxBodySize {
+			n = maxBodySize
+		}
+		_, err = io.CopyN(wr, rd, int64(n))
+		if err != nil {
+			resp.Reset()
+			return err
+		}
+		resp.Header.SetContentLength(n)
+	}
+	return nil
+}
+
 func (resp *Response) mustSkipBody() bool {
 	return resp.SkipBody || resp.Header.mustSkipContentLength()
 }
