@@ -1009,16 +1009,16 @@ func (resp *Response) copyBody(wr io.Writer, rd io.Reader, maxBodySize int) erro
 		}
 	}
 	if !resp.mustSkipBody() {
-		var n int
+		n, t := int(0), int64(0)
 		if n = resp.Header.ContentLength(); maxBodySize > 0 && n > maxBodySize {
 			n = maxBodySize
 		}
-		_, err = io.CopyN(wr, rd, int64(n))
+		t, err = io.CopyN(wr, rd, int64(n))
 		if err != nil {
 			resp.Reset()
 			return err
 		}
-		resp.Header.SetContentLength(n)
+		resp.Header.SetContentLength(int(t))
 	}
 	return nil
 }
