@@ -152,6 +152,12 @@ type Client struct {
 	// Default client name is used if not set.
 	Name string
 
+	// Writer establish the output of the body in io.Writer interface.
+	//
+	// It can be use to send the body output to an output.
+	// See examples/writer.
+	Writer io.Writer
+
 	// Callback for establishing new connections to hosts.
 	//
 	// Default Dial is used if not set.
@@ -385,6 +391,7 @@ func (c *Client) Do(req *Request, resp *Response) error {
 		hc = &HostClient{
 			Addr:                          addMissingPort(string(host), isTLS),
 			Name:                          c.Name,
+			Writer:                        c.Writer,
 			Dial:                          c.Dial,
 			DialDualStack:                 c.DialDualStack,
 			IsTLS:                         isTLS,
@@ -486,6 +493,12 @@ type HostClient struct {
 
 	// Client name. Used in User-Agent request header.
 	Name string
+
+	// Writer establish the output of the body in io.Writer interface.
+	//
+	// It can be use to send the body output to an output.
+	// See examples/writer.
+	Writer io.Writer
 
 	// Callback for establishing new connection to the host.
 	//
@@ -1158,10 +1171,18 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	}
 
 	br := c.acquireReader(conn)
-	if err = resp.ReadLimitBody(br, c.MaxResponseBodySize); err != nil {
-		c.releaseReader(br)
-		c.closeConn(cc)
-		return true, err
+	if c.Writer != nil {
+		if err = resp.copyBody(c.Writer, br, c.MaxResponseBodySize); err != nil {
+			c.releaseReader(br)
+			c.closeConn(cc)
+			return true, err
+		}
+	} else {
+		if err = resp.ReadLimitBody(br, c.MaxResponseBodySize); err != nil {
+			c.releaseReader(br)
+			c.closeConn(cc)
+			return true, err
+		}
 	}
 	c.releaseReader(br)
 
