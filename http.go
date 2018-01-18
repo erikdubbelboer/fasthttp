@@ -1013,7 +1013,7 @@ func (resp *Response) copyBody(wr io.Writer, rd io.Reader, maxBodySize int) erro
 		if n = resp.Header.ContentLength(); maxBodySize > 0 && n > maxBodySize {
 			n = maxBodySize
 		}
-		t, err = io.CopyN(wr, rd, int64(n))
+		t, err = io.CopyN(wr, r, int64(n))
 		if err != nil {
 			resp.Reset()
 			return err
