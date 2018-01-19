@@ -1200,6 +1200,9 @@ func (s *Server) ListenAndServeUNIX(addr string, mode os.FileMode) error {
 //
 // Pass custom listener to Serve if you need listening on non-TCP4 media
 // such as IPv6.
+//
+// If any certFile or keyFile have been provided the server structure
+// will use preadded tls configuration.
 func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
@@ -1214,6 +1217,9 @@ func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
 //
 // Pass custom listener to Serve if you need listening on arbitrary media
 // such as IPv6.
+//
+// If any certFile or keyFile have been provided the server structure
+// will use preadded tls configuration.
 func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) error {
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
@@ -1225,11 +1231,19 @@ func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) e
 // ServeTLS serves HTTPS requests from the given listener.
 //
 // certFile and keyFile are paths to TLS certificate and key files.
-func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
-	err := s.AppendCert(certFile, keyFile)
-	if err != nil {
-		return err
+//
+// If any certFile or keyFile have been provided the server structure
+// will use preadded tls configuration.
+func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) (err error) {
+	if len(certFile) > 0 && len(keyFile) > 0 {
+		err = s.AppendCert(certFile, keyFile)
+	} else if s.tlsConfig == nil {
+		err = fmt.Errorf("Any certFile and keyFile have been provided")
 	}
+	if err != nil {
+		return
+	}
+
 	s.tlsConfig.BuildNameToCertificate()
 	return s.Serve(
 		tls.NewListener(ln, s.tlsConfig),
@@ -1239,18 +1253,34 @@ func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
 // ServeTLSEmbed serves HTTPS requests from the given listener.
 //
 // certData and keyData must contain valid TLS certificate and key data.
-func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error {
-	err := s.AppendCertEmbed(certData, keyData)
-	if err != nil {
-		return err
+//
+// If any certFile or keyFile have been provided the server structure
+// will use preadded tls configuration.
+func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) (err error) {
+	if len(certData) > 0 && len(keyData) > 0 {
+		err = s.AppendCertEmbed(certData, keyData)
+	} else if s.tlsConfig == nil {
+		err = fmt.Errorf("Any certData and keyData have been provided")
 	}
+	if err != nil {
+		return
+	}
+
 	s.tlsConfig.BuildNameToCertificate()
 	return s.Serve(
 		tls.NewListener(ln, s.tlsConfig),
 	)
 }
 
+// AppendCert appends certificate and keyfile to TLS Configuration.
+//
+// This function allows programmer to handle multiple domains
+// in one server structure. See examples/multidomain
 func (s *Server) AppendCert(certFile, keyFile string) error {
+	if len(certFile) == 0 && len(keyFile) == 0 {
+		return fmt.Errorf("Not provided any certFile or keyFile")
+	}
+
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return fmt.Errorf("cannot load TLS key pair from certFile=%q and keyFile=%q: %s", certFile, keyFile, err)
@@ -1268,7 +1298,12 @@ func (s *Server) AppendCert(certFile, keyFile string) error {
 	return nil
 }
 
+// AppendCertEmbed does the same as AppendCert but using in-memory data.
 func (s *Server) AppendCertEmbed(certData, keyData []byte) error {
+	if len(certData) == 0 && len(keyData) == 0 {
+		return fmt.Errorf("Not provided any certFile or keyFile")
+	}
+
 	cert, err := tls.X509KeyPair(certData, keyData)
 	if err != nil {
 		return fmt.Errorf("cannot load TLS key pair from the provided certData(%d) and keyData(%d): %s",
