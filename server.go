@@ -1230,6 +1230,7 @@ func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
 	if err != nil {
 		return err
 	}
+	s.tlsConfig.BuildNameToCertificate()
 	return s.Serve(
 		tls.NewListener(ln, s.tlsConfig),
 	)
@@ -1243,6 +1244,7 @@ func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error 
 	if err != nil {
 		return err
 	}
+	s.tlsConfig.BuildNameToCertificate()
 	return s.Serve(
 		tls.NewListener(ln, s.tlsConfig),
 	)
