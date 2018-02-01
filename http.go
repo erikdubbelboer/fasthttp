@@ -1110,6 +1110,10 @@ func (req *Request) Write(w *bufio.Writer) error {
 
 	hasBody := !req.Header.ignoreBody()
 	if hasBody {
+		// is POST
+		if len(body) == 0 {
+			body = req.postArgs.QueryString()
+		}
 		req.Header.SetContentLength(len(body))
 	}
 	if err = req.Header.Write(w); err != nil {
