@@ -1563,6 +1563,7 @@ func (s *Server) serveConn(c net.Conn) error {
 				ctx.Request.Header.DisableNormalizing()
 				ctx.Response.Header.DisableNormalizing()
 			}
+			// reading Headers and Body
 			err = ctx.Request.readLimitBody(br, maxRequestBodySize, s.GetOnly)
 			if br.Buffered() == 0 || err != nil {
 				releaseReader(s, br)
@@ -1923,9 +1924,8 @@ func releaseWriter(s *Server, w *bufio.Writer) {
 	s.writerPool.Put(w)
 }
 
-func (s *Server) acquireCtx(c net.Conn) *RequestCtx {
+func (s *Server) acquireCtx(c net.Conn) (ctx *RequestCtx) {
 	v := s.ctxPool.Get()
-	var ctx *RequestCtx
 	if v == nil {
 		ctx = &RequestCtx{
 			s: s,
@@ -1937,7 +1937,7 @@ func (s *Server) acquireCtx(c net.Conn) *RequestCtx {
 		ctx = v.(*RequestCtx)
 	}
 	ctx.c = c
-	return ctx
+	return
 }
 
 // Init2 prepares ctx for passing to RequestHandler.

@@ -11,5 +11,5 @@ make
 # How to run
 
 ```
-./server & ./client
+./main
 ```

@@ -1,7 +1,6 @@
 writer: clean
 	go get -u github.com/erikdubbelboer/fasthttp
-	go build client.go
-	go build server.go
+	go build main.go
 
 clean:
-	rm -f client server
+	rm -f main
