@@ -18,6 +18,34 @@ import (
 	"github.com/erikdubbelboer/fasthttp/fasthttputil"
 )
 
+func TestClientPostArgs(t *testing.T) {
+	go ListenAndServe(":49874", func(ctx *RequestCtx) {
+		body := ctx.Request.Body()
+		if len(body) == 0 {
+			return
+		}
+		ctx.Write(body)
+	})
+	c := &Client{}
+
+	req, res := AcquireRequest(), AcquireResponse()
+	args := req.PostArgs()
+
+	args.Add("addhttp2", "support")
+	args.Add("fast", "http")
+
+	req.Header.SetMethod("POST")
+	req.SetRequestURI("http://127.0.0.1:49874")
+
+	err := c.Do(req, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Body()) == 0 {
+		t.Fatal("cannot set args as body")
+	}
+}
+
 func TestClientUserAgent(t *testing.T) {
 	go ListenAndServe(":49810", func(ctx *RequestCtx) {
 		ctx.Write([]byte("response"))
@@ -29,7 +57,7 @@ func TestClientUserAgent(t *testing.T) {
 	req := AcquireRequest()
 	res := AcquireResponse()
 
-	req.SetRequestURI("http://localhost:49810")
+	req.SetRequestURI("http://127.0.0.1:49810")
 
 	err := c.Do(req, res)
 	if err != nil {
