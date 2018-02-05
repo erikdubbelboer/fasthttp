@@ -19,17 +19,26 @@ import (
 )
 
 func TestClientUserAgent(t *testing.T) {
-	go ListenAndServe(":49810", func(ctx *RequestCtx) {
-		ctx.Write([]byte("response"))
-	})
+	ln := fasthttputil.NewInmemoryListener()
+
+	s := &Server{
+		Handler: func(ctx *RequestCtx) {
+			ctx.Write([]byte("response"))
+		},
+	}
+	go s.Serve(ln)
+
 	userAgent := "I'm not fasthttp"
 	c := &Client{
 		Name: userAgent,
+		Dial: func(addr string) (net.Conn, error) {
+			return ln.Dial()
+		},
 	}
 	req := AcquireRequest()
 	res := AcquireResponse()
 
-	req.SetRequestURI("http://localhost:49810")
+	req.SetRequestURI("http://do.not.worry?we.are.going.to.make.fasthttp.great.again")
 
 	err := c.Do(req, res)
 	if err != nil {
