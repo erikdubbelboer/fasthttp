@@ -279,6 +279,8 @@ type Server struct {
 	// By default standard logger from log package is used.
 	Logger Logger
 
+	tlsConfig *tls.Config
+
 	concurrency      uint32
 	concurrencyCh    chan struct{}
 	perIPConnCounter perIPConnCounter
@@ -1198,6 +1200,9 @@ func (s *Server) ListenAndServeUNIX(addr string, mode os.FileMode) error {
 //
 // Pass custom listener to Serve if you need listening on non-TCP4 media
 // such as IPv6.
+//
+// If the certFile or keyFile has not been provided to the server structure,
+// the function will use the previously added TLS configuration.
 func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
@@ -1212,6 +1217,9 @@ func (s *Server) ListenAndServeTLS(addr, certFile, keyFile string) error {
 //
 // Pass custom listener to Serve if you need listening on arbitrary media
 // such as IPv6.
+//
+// If the certFile or keyFile has not been provided the server structure,
+// the function will use previously added TLS configuration.
 func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) error {
 	ln, err := net.Listen("tcp4", addr)
 	if err != nil {
@@ -1223,48 +1231,87 @@ func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) e
 // ServeTLS serves HTTPS requests from the given listener.
 //
 // certFile and keyFile are paths to TLS certificate and key files.
+//
+// If the certFile or keyFile has not been provided the server structure,
+// the function will use previously added TLS configuration.
 func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
-	lnTLS, err := newTLSListener(ln, certFile, keyFile)
-	if err != nil {
-		return err
+	s.AppendCert(certFile, keyFile)
+	if s.tlsConfig == nil {
+		return errors.New("No certFile or keyFile has been provided")
 	}
-	return s.Serve(lnTLS)
+	s.tlsConfig.BuildNameToCertificate()
+
+	return s.Serve(
+		tls.NewListener(ln, s.tlsConfig),
+	)
 }
 
 // ServeTLSEmbed serves HTTPS requests from the given listener.
 //
 // certData and keyData must contain valid TLS certificate and key data.
+//
+// If the certFile or keyFile has not been provided the server structure,
+// the function will use previously added TLS configuration.
 func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error {
-	lnTLS, err := newTLSListenerEmbed(ln, certData, keyData)
-	if err != nil {
-		return err
+	s.AppendCertEmbed(certData, keyData)
+	if s.tlsConfig == nil {
+		return errors.New("No certData or keyData has been provided")
 	}
-	return s.Serve(lnTLS)
+	s.tlsConfig.BuildNameToCertificate()
+
+	return s.Serve(
+		tls.NewListener(ln, s.tlsConfig),
+	)
 }
 
-func newTLSListener(ln net.Listener, certFile, keyFile string) (net.Listener, error) {
+// AppendCert appends certificate and keyfile to TLS Configuration.
+//
+// This function allows programmer to handle multiple domains
+// in one server structure. See examples/multidomain
+func (s *Server) AppendCert(certFile, keyFile string) error {
+	if len(certFile) == 0 && len(keyFile) == 0 {
+		return errors.New("certFile or keyFile has not provided")
+	}
+
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load TLS key pair from certFile=%q and keyFile=%q: %s", certFile, keyFile, err)
+		return fmt.Errorf("cannot load TLS key pair from certFile=%q and keyFile=%q: %s", certFile, keyFile, err)
 	}
-	return newCertListener(ln, &cert), nil
+
+	if s.tlsConfig == nil {
+		s.tlsConfig = &tls.Config{
+			Certificates:             []tls.Certificate{cert},
+			PreferServerCipherSuites: true,
+		}
+		return nil
+	}
+
+	s.tlsConfig.Certificates = append(s.tlsConfig.Certificates, cert)
+	return nil
 }
 
-func newTLSListenerEmbed(ln net.Listener, certData, keyData []byte) (net.Listener, error) {
+// AppendCertEmbed does the same as AppendCert but using in-memory data.
+func (s *Server) AppendCertEmbed(certData, keyData []byte) error {
+	if len(certData) == 0 && len(keyData) == 0 {
+		return errors.New("certFile or keyFile has not provided")
+	}
+
 	cert, err := tls.X509KeyPair(certData, keyData)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load TLS key pair from the provided certData(%d) and keyData(%d): %s",
+		return fmt.Errorf("cannot load TLS key pair from the provided certData(%d) and keyData(%d): %s",
 			len(certData), len(keyData), err)
 	}
-	return newCertListener(ln, &cert), nil
-}
 
-func newCertListener(ln net.Listener, cert *tls.Certificate) net.Listener {
-	tlsConfig := &tls.Config{
-		Certificates:             []tls.Certificate{*cert},
-		PreferServerCipherSuites: true,
+	if s.tlsConfig == nil {
+		s.tlsConfig = &tls.Config{
+			Certificates:             []tls.Certificate{cert},
+			PreferServerCipherSuites: true,
+		}
+		return nil
 	}
-	return tls.NewListener(ln, tlsConfig)
+
+	s.tlsConfig.Certificates = append(s.tlsConfig.Certificates, cert)
+	return nil
 }
 
 // DefaultConcurrency is the maximum number of concurrent connections
