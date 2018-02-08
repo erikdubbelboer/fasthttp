@@ -1504,6 +1504,20 @@ func (h *RequestHeader) Header() []byte {
 	return h.bufKV.value
 }
 
+// RawHeaders returns raw header key/value bytes.
+//
+// Depending on server configuration, header keys may be normalized to
+// capital-case in place.
+//
+// This copy is set aside during parsing, so empty slice is returned for all
+// cases where parsing did not happen. Similarly, request line is not stored
+// during parsing and can not be returned.
+//
+// The slice is not safe to use after the handler returns.
+func (h *RequestHeader) RawHeaders() []byte {
+	return h.rawHeaders
+}
+
 // String returns request header representation.
 func (h *RequestHeader) String() string {
 	return string(h.Header())

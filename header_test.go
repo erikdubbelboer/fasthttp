@@ -110,6 +110,83 @@ func TestRequestHeaderEmptyValueFromString(t *testing.T) {
 	}
 }
 
+func TestRequestRawHeaders(t *testing.T) {
+	kvs := "EmptyValue:\r\n" +
+		"host: foobar\r\n" +
+		"value: b\r\n" +
+		"\r\n"
+	t.Run("normalized", func(t *testing.T) {
+		s := "GET / HTTP/1.1\r\n" + kvs
+		exp := "Emptyvalue:\r\n" +
+			"Host: foobar\r\n" +
+			"Value: b\r\n" +
+			"\r\n"
+		var h RequestHeader
+		br := bufio.NewReader(bytes.NewBufferString(s))
+		if err := h.Read(br); err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if string(h.Host()) != "foobar" {
+			t.Fatalf("unexpected host: %q. Expecting %q", h.Host(), "foobar")
+		}
+		v1 := h.Peek("EmptyValue")
+		if len(v1) > 0 {
+			t.Fatalf("expecting empty value. Got %q", v1)
+		}
+		v2 := h.Peek("Value")
+		if !bytes.Equal(v2, []byte{'b'}) {
+			t.Fatalf("expecting non empty value. Got %q", v2)
+		}
+		if raw := h.RawHeaders(); string(raw) != exp {
+			t.Fatalf("unexpected raw header %q, expected %q instead", kvs, raw)
+		}
+	})
+	t.Run("non-normalized", func(t *testing.T) {
+		s := "GET / HTTP/1.1\r\n" + kvs
+		exp := kvs
+		var h RequestHeader
+		h.DisableNormalizing()
+		br := bufio.NewReader(bytes.NewBufferString(s))
+		if err := h.Read(br); err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if string(h.Host()) != "" {
+			t.Fatalf("unexpected host: %q. Expecting %q", h.Host(), "")
+		}
+		v1 := h.Peek("EmptyValue")
+		if len(v1) > 0 {
+			t.Fatalf("expecting empty value. Got %q", v1)
+		}
+		v2 := h.Peek("value")
+		if !bytes.Equal(v2, []byte{'b'}) {
+			t.Fatalf("expecting non empty value. Got %q", v2)
+		}
+		if raw := h.RawHeaders(); string(raw) != exp {
+			t.Fatalf("unexpected raw header %q, expected %q instead", kvs, raw)
+		}
+	})
+	t.Run("no-kvs", func(t *testing.T) {
+		s := "GET / HTTP/1.1\r\n\r\n"
+		exp := ""
+		var h RequestHeader
+		h.DisableNormalizing()
+		br := bufio.NewReader(bytes.NewBufferString(s))
+		if err := h.Read(br); err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if string(h.Host()) != "" {
+			t.Fatalf("unexpected host: %q. Expecting %q", h.Host(), "")
+		}
+		v1 := h.Peek("NoKey")
+		if len(v1) > 0 {
+			t.Fatalf("expecting empty value. Got %q", v1)
+		}
+		if raw := h.RawHeaders(); string(raw) != exp {
+			t.Fatalf("unexpected raw header %q, expected %q instead", kvs, raw)
+		}
+	})
+}
+
 func TestRequestHeaderSetCookieWithSpecialChars(t *testing.T) {
 	var h RequestHeader
 	h.Set("Cookie", "ID&14")
