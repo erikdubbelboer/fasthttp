@@ -481,7 +481,7 @@ func (u *URI) WriteTo(w io.Writer) (int64, error) {
 
 // String returns full uri.
 func (u *URI) String() string {
-	return string(u.FullURI())
+	return b2s(u.FullURI())
 }
 
 func splitHostURI(host, uri []byte) ([]byte, []byte, []byte) {

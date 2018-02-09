@@ -1431,7 +1431,7 @@ func (h *ResponseHeader) Header() []byte {
 
 // String returns response header representation.
 func (h *ResponseHeader) String() string {
-	return string(h.Header())
+	return b2s(h.Header())
 }
 
 // AppendBytes appends response header representation to dst and returns
@@ -1506,7 +1506,7 @@ func (h *RequestHeader) Header() []byte {
 
 // String returns request header representation.
 func (h *RequestHeader) String() string {
-	return string(h.Header())
+	return b2s(h.Header())
 }
 
 // AppendBytes appends request header representation to dst and returns

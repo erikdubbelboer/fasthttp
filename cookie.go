@@ -237,7 +237,7 @@ func (c *Cookie) Cookie() []byte {
 
 // String returns cookie representation.
 func (c *Cookie) String() string {
-	return string(c.Cookie())
+	return b2s(c.Cookie())
 }
 
 // WriteTo writes cookie representation to w.
