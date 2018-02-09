@@ -433,7 +433,7 @@ func appendQuotedPath(dst, src []byte) []byte {
 //
 // This function is deperecated and may be deleted soon.
 func EqualBytesStr(b []byte, s string) bool {
-	return string(b) == s
+	return b2s(b) == s
 }
 
 // AppendBytesStr appends src to dst and returns the extended dst.
