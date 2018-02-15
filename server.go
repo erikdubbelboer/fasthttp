@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+var errNoCertOrKeyProvided = errors.New("Cert or key has not provided")
+
 // ServeConn serves HTTP requests from the given connection
 // using the given handler.
 //
@@ -1235,11 +1237,12 @@ func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) e
 // If the certFile or keyFile has not been provided the server structure,
 // the function will use previously added TLS configuration.
 func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
-	if err := s.AppendCert(certFile, keyFile); err != nil {
+	err := s.AppendCert(certFile, keyFile)
+	if err != nil && err != errNoCertOrKeyProvided {
 		return err
 	}
 	if s.tlsConfig == nil {
-		return errors.New("No certFile or keyFile has been provided")
+		return errNoCertOrKeyProvided
 	}
 	s.tlsConfig.BuildNameToCertificate()
 
@@ -1255,11 +1258,12 @@ func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
 // If the certFile or keyFile has not been provided the server structure,
 // the function will use previously added TLS configuration.
 func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error {
-	if err := s.AppendCertEmbed(certData, keyData); err != nil {
+	err := s.AppendCertEmbed(certData, keyData)
+	if err != nil && err != errNoCertOrKeyProvided {
 		return err
 	}
 	if s.tlsConfig == nil {
-		return errors.New("No certData or keyData has been provided")
+		return errNoCertOrKeyProvided
 	}
 	s.tlsConfig.BuildNameToCertificate()
 
@@ -1274,7 +1278,7 @@ func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error 
 // in one server structure. See examples/multidomain
 func (s *Server) AppendCert(certFile, keyFile string) error {
 	if len(certFile) == 0 && len(keyFile) == 0 {
-		return errors.New("certFile or keyFile has not provided")
+		return errNoCertOrKeyProvided
 	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -1297,7 +1301,7 @@ func (s *Server) AppendCert(certFile, keyFile string) error {
 // AppendCertEmbed does the same as AppendCert but using in-memory data.
 func (s *Server) AppendCertEmbed(certData, keyData []byte) error {
 	if len(certData) == 0 && len(keyData) == 0 {
-		return errors.New("certFile or keyFile has not provided")
+		return errNoCertOrKeyProvided
 	}
 
 	cert, err := tls.X509KeyPair(certData, keyData)
