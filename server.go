@@ -1235,7 +1235,9 @@ func (s *Server) ListenAndServeTLSEmbed(addr string, certData, keyData []byte) e
 // If the certFile or keyFile has not been provided the server structure,
 // the function will use previously added TLS configuration.
 func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
-	s.AppendCert(certFile, keyFile)
+	if err := s.AppendCert(certFile, keyFile); err != nil {
+		return err
+	}
 	if s.tlsConfig == nil {
 		return errors.New("No certFile or keyFile has been provided")
 	}
@@ -1253,7 +1255,9 @@ func (s *Server) ServeTLS(ln net.Listener, certFile, keyFile string) error {
 // If the certFile or keyFile has not been provided the server structure,
 // the function will use previously added TLS configuration.
 func (s *Server) ServeTLSEmbed(ln net.Listener, certData, keyData []byte) error {
-	s.AppendCertEmbed(certData, keyData)
+	if err := s.AppendCertEmbed(certData, keyData); err != nil {
+		return err
+	}
 	if s.tlsConfig == nil {
 		return errors.New("No certData or keyData has been provided")
 	}

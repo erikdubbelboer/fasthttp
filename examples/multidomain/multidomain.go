@@ -39,12 +39,12 @@ func main() {
 	}
 
 	// preparing first host
-	cert, priv, err := GenerateCert("localhost")
+	cert, priv, err := GenerateCert("localhost:8080")
 	if err != nil {
 		panic(err)
 	}
-	domains["localhost"] = func(ctx *fasthttp.RequestCtx) {
-		ctx.Write([]byte("You are accessing to localhost\n"))
+	domains["localhost:8080"] = func(ctx *fasthttp.RequestCtx) {
+		ctx.Write([]byte("You are accessing to localhost:8080\n"))
 	}
 
 	err = server.AppendCertEmbed(cert, priv)
