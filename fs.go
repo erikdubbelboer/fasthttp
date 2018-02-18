@@ -418,6 +418,7 @@ type fsFile struct {
 	bigFilesLock sync.Mutex
 }
 
+// NewBufferReader returns io.Reader of cache content of fsFile.
 func (ff *fsFile) NewBufferReader() (io.Reader, error) {
 	if ff.content == nil {
 		return nil, errors.New("this file does not have any content")
@@ -431,6 +432,7 @@ func (ff *fsFile) NewBufferReader() (io.Reader, error) {
 	return bf, nil
 }
 
+// ReleaseBuffer returns io.Reader (*bytes.Buffer) to the pool.
 func (ff *fsFile) ReleaseBuffer(r io.Reader) {
 	switch b := r.(type) {
 	case *bytes.Buffer:
