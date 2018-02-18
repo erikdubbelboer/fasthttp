@@ -61,6 +61,29 @@ func TestNewVHostPathRewriterMaliciousHost(t *testing.T) {
 	}
 }
 
+func TestInMemoryCache(t *testing.T) {
+	var ctx RequestCtx
+	var req Request
+	req.Header.SetMethod("GET")
+	req.Header.Add("Accept-Encoding", "gzip")
+	req.SetRequestURI("http://fasthttp.great/fs.go")
+	ctx.Init(&req, nil, nil)
+
+	fs := &FS{
+		Root:          "./",
+		Compress:      true,
+		InMemoryCache: true,
+	}
+	fs.NewRequestHandler()(&ctx)
+
+	if len(ctx.Response.Body()) == 0 {
+		t.Fatal("zero body for existing file")
+	}
+	if s := ctx.Response.Header.Peek("Content-Encoding"); !bytes.Equal(s, []byte("gzip")) {
+		t.Fatal("Uncompressed")
+	}
+}
+
 func testPathNotFound(t *testing.T, pathNotFoundFunc RequestHandler) {
 	var ctx RequestCtx
 	var req Request
