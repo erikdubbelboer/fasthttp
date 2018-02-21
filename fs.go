@@ -426,16 +426,16 @@ func (ff *fsFile) NewBufferReader() (io.Reader, error) {
 
 	b := ff.bufferPool.Get()
 	if b == nil {
-		b = bytes.NewBuffer(ff.content)
+		b = bytes.NewReader(ff.content)
 	}
-	bf := b.(*bytes.Buffer)
+	bf := b.(*bytes.Reader)
 	return bf, nil
 }
 
 // ReleaseBuffer returns io.Reader (*bytes.Buffer) to the pool.
 func (ff *fsFile) ReleaseBuffer(r io.Reader) {
 	switch b := r.(type) {
-	case *bytes.Buffer:
+	case *bytes.Reader:
 		ff.bufferPool.Put(b)
 	}
 }

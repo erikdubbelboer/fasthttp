@@ -63,11 +63,20 @@ func TestNewVHostPathRewriterMaliciousHost(t *testing.T) {
 
 func TestInMemoryCache(t *testing.T) {
 	var ctx RequestCtx
+	var cctx RequestCtx
 	var req Request
+	var creq Request
+
 	req.Header.SetMethod("GET")
-	req.Header.Add("Accept-Encoding", "gzip")
+	req.Header.Add("Accept-Ranges", "bytes")
 	req.SetRequestURI("http://fasthttp.great/fs.go")
+
+	creq.Header.SetMethod("GET")
+	creq.Header.Add("Accept-Encoding", "gzip")
+	creq.SetRequestURI("http://fasthttp.great/fs.go")
+
 	ctx.Init(&req, nil, nil)
+	cctx.Init(&creq, nil, nil)
 
 	fs := &FS{
 		Root:          "./",
@@ -75,12 +84,47 @@ func TestInMemoryCache(t *testing.T) {
 		InMemoryCache: true,
 	}
 	fs.NewRequestHandler()(&ctx)
+	fs.NewRequestHandler()(&cctx)
 
-	if len(ctx.Response.Body()) == 0 {
-		t.Fatal("zero body for existing file")
+	info, err := os.Stat("fs.go")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if s := ctx.Response.Header.Peek("Content-Encoding"); !bytes.Equal(s, []byte("gzip")) {
-		t.Fatal("Uncompressed")
+	cinfo, err := os.Stat("fs.go.fasthttp.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bodylen := len(ctx.Response.Body())
+	switch bodylen {
+	case int(info.Size()):
+	case 0:
+		t.Fatal("zero body for existing file")
+	default:
+		t.Fatal("bad expected size")
+	}
+
+	bodylen = len(cctx.Response.Body())
+	switch bodylen {
+	case int(cinfo.Size()):
+	case 0:
+		t.Fatal("zero body for existing file (compressed)")
+	default:
+		t.Fatal("bad expected size of compressed file")
+	}
+
+	body, err := cctx.Response.BodyGunzip()
+	if err != nil {
+		t.Fatal("Gzipped request is not gzipped response.", err)
+	}
+	bodylen = len(body)
+	body = nil
+	switch bodylen {
+	case int(info.Size()):
+	case 0:
+		t.Fatal("zero body for uncompressed response")
+	default:
+		t.Fatal("bad compressed content")
 	}
 }
 
