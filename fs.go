@@ -420,7 +420,7 @@ type fsFile struct {
 
 // NewBufferReader returns io.Reader of cache content of fsFile.
 func (ff *fsFile) NewBufferReader() (io.Reader, error) {
-	if ff.content == nil {
+	if len(ff.content) == 0 {
 		return nil, errors.New("this file does not have any content")
 	}
 
@@ -429,6 +429,7 @@ func (ff *fsFile) NewBufferReader() (io.Reader, error) {
 		b = bytes.NewReader(ff.content)
 	}
 	bf := b.(*bytes.Reader)
+	bf.Seek(0, 0)
 	return bf, nil
 }
 
@@ -736,7 +737,7 @@ func (h *fsHandler) handleRequest(ctx *RequestCtx) {
 	}
 
 	mustCompress := false
-	loaded := h.inMemoryCache
+	cache := h.inMemoryCache
 	fileCache := h.cache
 	byteRange := ctx.Request.Header.peek(strRange)
 	if len(byteRange) == 0 && h.compress && ctx.Request.Header.HasAcceptEncodingBytes(strGzip) {
@@ -806,7 +807,7 @@ func (h *fsHandler) handleRequest(ctx *RequestCtx) {
 	}
 
 	var r io.Reader
-	if loaded {
+	if cache {
 		r, err = ff.NewBufferReader()
 		if err != nil {
 			ctx.Logger().Printf("error reading buffer from %q: %s", ff.f.Name(), err)
