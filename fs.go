@@ -231,6 +231,14 @@ type FS struct {
 	// Transparent compression is disabled by default.
 	Compress bool
 
+	// InMemoryCache stores file content in memory instead of getting it from file
+	// to serve it directly from memory.
+	//
+	// This method is disabled by default to avoid memory wasting.
+	//
+	// The storage will be compressed if Compress parameter is true.
+	InMemoryCache bool
+
 	// Enables byte range requests if set to true.
 	//
 	// Byte range requests are disabled by default.
@@ -351,6 +359,7 @@ func (fs *FS) initRequestHandler() {
 		pathRewrite:          fs.PathRewrite,
 		generateIndexPages:   fs.GenerateIndexPages,
 		compress:             fs.Compress,
+		inMemoryCache:        fs.InMemoryCache,
 		pathNotFound:         fs.PathNotFound,
 		acceptByteRange:      fs.AcceptByteRange,
 		cacheDuration:        cacheDuration,
@@ -377,6 +386,7 @@ type fsHandler struct {
 	pathNotFound         RequestHandler
 	generateIndexPages   bool
 	compress             bool
+	inMemoryCache        bool
 	acceptByteRange      bool
 	cacheDuration        time.Duration
 	compressedFileSuffix string
@@ -392,6 +402,7 @@ type fsFile struct {
 	h             *fsHandler
 	f             *os.File
 	dirIndex      []byte
+	content       []byte
 	contentType   string
 	contentLength int
 	compressed    bool
@@ -402,8 +413,32 @@ type fsFile struct {
 	t            time.Time
 	readersCount int
 
+	bufferPool   sync.Pool
 	bigFiles     []*bigFileReader
 	bigFilesLock sync.Mutex
+}
+
+// NewBufferReader returns io.Reader of cache content of fsFile.
+func (ff *fsFile) NewBufferReader() (io.Reader, error) {
+	if len(ff.content) == 0 {
+		return nil, errors.New("this file does not have any content")
+	}
+
+	b := ff.bufferPool.Get()
+	if b == nil {
+		b = bytes.NewReader(ff.content)
+	}
+	bf := b.(*bytes.Reader)
+	bf.Seek(0, 0)
+	return bf, nil
+}
+
+// ReleaseBuffer returns io.Reader (*bytes.Buffer) to the pool.
+func (ff *fsFile) ReleaseBuffer(r io.Reader) {
+	switch b := r.(type) {
+	case *bytes.Reader:
+		ff.bufferPool.Put(b)
+	}
 }
 
 func (ff *fsFile) NewReader() (io.Reader, error) {
@@ -702,6 +737,7 @@ func (h *fsHandler) handleRequest(ctx *RequestCtx) {
 	}
 
 	mustCompress := false
+	cache := h.inMemoryCache
 	fileCache := h.cache
 	byteRange := ctx.Request.Header.peek(strRange)
 	if len(byteRange) == 0 && h.compress && ctx.Request.Header.HasAcceptEncodingBytes(strGzip) {
@@ -716,10 +752,10 @@ func (h *fsHandler) handleRequest(ctx *RequestCtx) {
 	}
 	h.cacheLock.Unlock()
 
+	var err error
 	if !ok {
 		pathStr := string(path)
 		filePath := h.root + pathStr
-		var err error
 		ff, err = h.openFSFile(filePath, mustCompress)
 		if mustCompress && err == errNoCreatePermission {
 			ctx.Logger().Printf("insufficient permissions for saving compressed file for %q. Serving uncompressed file. "+
@@ -770,11 +806,22 @@ func (h *fsHandler) handleRequest(ctx *RequestCtx) {
 		return
 	}
 
-	r, err := ff.NewReader()
-	if err != nil {
-		ctx.Logger().Printf("cannot obtain file reader for path=%q: %s", path, err)
-		ctx.Error("Internal Server Error", StatusInternalServerError)
-		return
+	var r io.Reader
+	if cache {
+		r, err = ff.NewBufferReader()
+		if err != nil {
+			ctx.Logger().Printf("error reading buffer from %q: %s", ff.f.Name(), err)
+		} else {
+			defer ff.ReleaseBuffer(r)
+		}
+	}
+	if r == nil {
+		r, err = ff.NewReader()
+		if err != nil {
+			ctx.Logger().Printf("cannot obtain file reader for path=%q: %s", path, err)
+			ctx.Error("Internal Server Error", StatusInternalServerError)
+			return
+		}
 	}
 
 	hdr := &ctx.Response.Header
@@ -1018,7 +1065,7 @@ func (h *fsHandler) compressAndOpenFSFile(filePath string) (*fsFile, error) {
 	if strings.HasSuffix(filePath, h.compressedFileSuffix) ||
 		fileInfo.Size() > fsMaxCompressibleFileSize ||
 		!isFileCompressible(f, fsMinCompressRatio) {
-		return h.newFSFile(f, fileInfo, false)
+		return h.newFSFile(f, fileInfo, false, h.inMemoryCache)
 	}
 
 	compressedFilePath := filePath + h.compressedFileSuffix
@@ -1089,7 +1136,7 @@ func (h *fsHandler) newCompressedFSFile(filePath string) (*fsFile, error) {
 		f.Close()
 		return nil, fmt.Errorf("cannot obtain info for compressed file %q: %s", filePath, err)
 	}
-	return h.newFSFile(f, fileInfo, true)
+	return h.newFSFile(f, fileInfo, true, h.inMemoryCache)
 }
 
 func (h *fsHandler) openFSFile(filePath string, mustCompress bool) (*fsFile, error) {
@@ -1136,10 +1183,10 @@ func (h *fsHandler) openFSFile(filePath string, mustCompress bool) (*fsFile, err
 		}
 	}
 
-	return h.newFSFile(f, fileInfo, mustCompress)
+	return h.newFSFile(f, fileInfo, mustCompress, h.inMemoryCache)
 }
 
-func (h *fsHandler) newFSFile(f *os.File, fileInfo os.FileInfo, compressed bool) (*fsFile, error) {
+func (h *fsHandler) newFSFile(f *os.File, fileInfo os.FileInfo, compressed, store bool) (*fsFile, error) {
 	n := fileInfo.Size()
 	contentLength := int(n)
 	if n != int64(contentLength) {
@@ -1158,10 +1205,22 @@ func (h *fsHandler) newFSFile(f *os.File, fileInfo os.FileInfo, compressed bool)
 		contentType = http.DetectContentType(data)
 	}
 
+	var buffer []byte
+	if !store {
+		buffer = nil
+	} else {
+		buffer = make([]byte, contentLength)
+		n, err := f.Read(buffer)
+		if err != nil || n != contentLength {
+			buffer = nil
+		}
+	}
+
 	lastModified := fileInfo.ModTime()
 	ff := &fsFile{
 		h:               h,
 		f:               f,
+		content:         buffer,
 		contentType:     contentType,
 		contentLength:   contentLength,
 		compressed:      compressed,
