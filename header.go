@@ -957,6 +957,15 @@ func (h *ResponseHeader) SetCookie(cookie *Cookie) {
 	h.cookies = setArgBytes(h.cookies, cookie.Key(), cookie.Cookie())
 }
 
+// SetCookies sets the given response cookies.
+//
+// It is save re-using the cookie after the function returns.
+func (h *ResponseHeader) SetCookies(cookies *CookieJar) {
+	for _, c := range *cookies {
+		h.cookies = setArgBytes(h.cookies, c.Key(), c.Cookie())
+	}
+}
+
 // SetCookie sets 'key: value' cookies.
 func (h *RequestHeader) SetCookie(key, value string) {
 	h.parseRawHeaders()
