@@ -28,6 +28,9 @@ var (
 	strPut     = []byte("PUT")
 	strDelete  = []byte("DELETE")
 	strConnect = []byte("CONNECT")
+	strOptions = []byte("OPTIONS")
+	strTrace   = []byte("TRACE")
+	strPatch   = []byte("PATCH")
 
 	strExpect           = []byte("Expect")
 	strConnection       = []byte("Connection")

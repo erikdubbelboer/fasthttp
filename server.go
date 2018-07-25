@@ -838,9 +838,34 @@ func (ctx *RequestCtx) IsPut() bool {
 	return ctx.Request.Header.IsPut()
 }
 
+// IsHead returns true if request method is HEAD.
+func (ctx *RequestCtx) IsHead() bool {
+	return ctx.Request.Header.IsHead()
+}
+
 // IsDelete returns true if request method is DELETE.
 func (ctx *RequestCtx) IsDelete() bool {
 	return ctx.Request.Header.IsDelete()
+}
+
+// IsConnect returns true if request method is CONNECT.
+func (ctx *RequestCtx) IsConnect() bool {
+	return ctx.Request.Header.IsConnect()
+}
+
+// IsOptions returns true if request method is OPTIONS.
+func (ctx *RequestCtx) IsOptions() bool {
+	return ctx.Request.Header.IsOptions()
+}
+
+// IsTrace returns true if request method is TRACE.
+func (ctx *RequestCtx) IsTrace() bool {
+	return ctx.Request.Header.IsTrace()
+}
+
+// IsPatch returns true if request method is PATCH.
+func (ctx *RequestCtx) IsPatch() bool {
+	return ctx.Request.Header.IsPatch()
 }
 
 // Method return request method.
@@ -848,11 +873,6 @@ func (ctx *RequestCtx) IsDelete() bool {
 // Returned value is valid until returning from RequestHandler.
 func (ctx *RequestCtx) Method() []byte {
 	return ctx.Request.Header.Method()
-}
-
-// IsHead returns true if request method is HEAD.
-func (ctx *RequestCtx) IsHead() bool {
-	return ctx.Request.Header.IsHead()
 }
 
 // RemoteAddr returns client address for the given request.
