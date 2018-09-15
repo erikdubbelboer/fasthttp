@@ -1759,12 +1759,16 @@ func testReadBodyChunked(t *testing.T, b []byte, bodySize int) {
 
 	r := bytes.NewBuffer(chunkedBody)
 	br := bufio.NewReader(r)
-	b, err := readBody(br, -1, 0, nil)
+	bodyReader, err := getBodyReader(br, -1, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error for bodySize=%d: %s. body=%q, chunkedBody=%q", bodySize, err, body, chunkedBody)
 	}
-	if !bytes.Equal(b, body) {
-		t.Fatalf("Unexpected response read for bodySize=%d: %q. Expected %q. chunkedBody=%q", bodySize, b, body, chunkedBody)
+	rb, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		t.Fatalf("Unexpected error for bodySize=%d: %s. body=%q, chunkedBody=%q", bodySize, err, body, chunkedBody)
+	}
+	if !bytes.Equal(rb, body) {
+		t.Fatalf("Unexpected response read for bodySize=%d: %q. Expected %q. chunkedBody=%q", bodySize, rb, body, chunkedBody)
 	}
 	verifyTrailer(t, br, string(expectedTrailer))
 }
@@ -1776,12 +1780,16 @@ func testReadBodyFixedSize(t *testing.T, b []byte, bodySize int) {
 
 	r := bytes.NewBuffer(bodyWithTrailer)
 	br := bufio.NewReader(r)
-	b, err := readBody(br, bodySize, 0, nil)
+	bodyReader, err := getBodyReader(br, bodySize, 0)
 	if err != nil {
 		t.Fatalf("Unexpected error in ReadResponseBody(%d): %s", bodySize, err)
 	}
-	if !bytes.Equal(b, body) {
-		t.Fatalf("Unexpected response read for bodySize=%d: %q. Expected %q", bodySize, b, body)
+	rb, err := ioutil.ReadAll(bodyReader)
+	if err != nil {
+		t.Fatalf("Unexpected error in ReadResponseBody(%d): %s", bodySize, err)
+	}
+	if !bytes.Equal(rb, body) {
+		t.Fatalf("Unexpected response read for bodySize=%d: %q. Expected %q", bodySize, rb, body)
 	}
 	verifyTrailer(t, br, string(expectedTrailer))
 }

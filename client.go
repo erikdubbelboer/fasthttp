@@ -1137,17 +1137,32 @@ func (c *HostClient) doNonNilReqResp(req *Request, resp *Response) (bool, error)
 	}
 
 	br := c.acquireReader(conn)
-	if err = resp.ReadLimitBody(br, c.MaxResponseBodySize); err != nil {
-		c.releaseReader(br)
-		c.closeConn(cc)
-		return true, err
-	}
-	c.releaseReader(br)
-
-	if resetConnection || req.ConnectionClose() || resp.ConnectionClose() {
-		c.closeConn(cc)
+	if resp.ReturnBodyReader {
+		if resp.BodyReader, err = resp.ReadLimitBodyReader(br, c.MaxResponseBodySize); err != nil {
+			c.releaseReader(br)
+			c.closeConn(cc)
+			return true, err
+		}
+		wrap := wrapBodyReaderPool.Get().(*wrapBodyReader)
+		wrap.r = resp.BodyReader
+		wrap.br = br
+		wrap.c = c
+		wrap.cc = cc
+		wrap.close = resetConnection || req.ConnectionClose() || resp.ConnectionClose()
+		resp.BodyReader = wrap
 	} else {
-		c.releaseConn(cc)
+		if err = resp.ReadLimitBody(br, c.MaxResponseBodySize); err != nil {
+			c.releaseReader(br)
+			c.closeConn(cc)
+			return true, err
+		}
+		c.releaseReader(br)
+
+		if resetConnection || req.ConnectionClose() || resp.ConnectionClose() {
+			c.closeConn(cc)
+		} else {
+			c.releaseConn(cc)
+		}
 	}
 
 	return false, err
