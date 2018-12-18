@@ -1887,6 +1887,8 @@ func (r *chunkedBodyReader) Read(p []byte) (int, error) {
 			}
 
 			r.chunkSize = -1
+
+			return n, nil
 		}
 
 		if len(p) == 0 {
