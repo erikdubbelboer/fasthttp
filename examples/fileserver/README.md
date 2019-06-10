@@ -8,6 +8,10 @@
 * Supports virtual hosts.
 * Exports various stats on /stats path.
 
+**I added some other features demo**
+1. Return JSON to browser with gzip enabled
+2. Streaming response
+
 # How to build
 
 ```
@@ -19,6 +23,14 @@ make
 ```
 ./fileserver -h
 ./fileserver -addr=tcp.addr.to.listen:to -dir=/path/to/directory/to/serve
+```
+
+# Additional demo
+```
+$ go run fileserver.go  --addr=0.0.0.0:7000
+$ curl http://localhost:7000/hello
+$ curl http://localhost:7000/json
+$ curl http://localhost:7000/stream
 ```
 
 # fileserver vs nginx performance comparison
